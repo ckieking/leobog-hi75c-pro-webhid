@@ -75,13 +75,11 @@ export function App() {
         t={t}
         locale={locale}
         activeTab={activeTab}
-        selectedKeyId={selectedKeyId}
         inspectorOpen={inspectorOpen}
         onTabChange={(tab) => {
           setActiveTab(tab);
           setInspectorOpen(true);
         }}
-        onSelectKnob={handleSelectKnob}
         onToggleInspector={() => setInspectorOpen((open) => !open)}
         onToggleLocale={toggleLocale}
         onExportProfile={handleExportProfile}

@@ -9,7 +9,6 @@ import {
   IconDownload,
   IconGlobe,
   IconKeyboard,
-  IconKnob,
   IconRefresh,
   IconSidebar,
   IconSun,
@@ -23,10 +22,8 @@ interface IconRailProps {
   t: Messages;
   locale: Locale;
   activeTab: ActiveTab;
-  selectedKeyId: string | null;
   inspectorOpen: boolean;
   onTabChange: (tab: ActiveTab) => void;
-  onSelectKnob: () => void;
   onToggleInspector: () => void;
   onToggleLocale: () => void;
   onExportProfile: () => void;
@@ -37,10 +34,8 @@ export function IconRail({
   t,
   locale,
   activeTab,
-  selectedKeyId,
   inspectorOpen,
   onTabChange,
-  onSelectKnob,
   onToggleInspector,
   onToggleLocale,
   onExportProfile,
@@ -61,8 +56,7 @@ export function IconRail({
     e.target.value = '';
   };
 
-  const isKnobFocused = activeTab === 'keymap' && selectedKeyId === 'K82';
-  const isKeymapFocused = activeTab === 'keymap' && !isKnobFocused;
+  const isKeymapFocused = activeTab === 'keymap';
   const isLightingFocused = activeTab === 'lighting';
 
   return (
@@ -92,17 +86,6 @@ export function IconRail({
           onClick={() => onTabChange('lighting')}
         >
           <IconSun size={18} />
-        </button>
-
-        <button
-          type="button"
-          className={`rail-btn ${isKnobFocused ? 'active' : ''}`}
-          aria-pressed={isKnobFocused}
-          aria-label={t.keymap.knob}
-          title={t.keymap.knob}
-          onClick={onSelectKnob}
-        >
-          <IconKnob size={18} />
         </button>
       </div>
 
