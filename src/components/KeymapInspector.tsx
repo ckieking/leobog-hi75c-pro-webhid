@@ -71,6 +71,9 @@ export function KeymapInspector({
 
   useEffect(() => {
     if (!listening || !selectedKey) return;
+    let pendingModifierHid: number | null = null;
+    let assigned = false;
+
     const onKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -80,19 +83,37 @@ export function KeymapInspector({
         return;
       }
       if (hid >= 0xe0 && hid <= 0xe7) {
-        onAssignCode(activeLayer, selectedKey.matrixIndex, encodeStdKey4B(hid, 0));
-      } else {
-        let mods = 0;
-        if (e.ctrlKey) mods |= MODIFIER_BITS.LCTRL;
-        if (e.shiftKey) mods |= MODIFIER_BITS.LSHIFT;
-        if (e.altKey) mods |= MODIFIER_BITS.LALT;
-        if (e.metaKey) mods |= MODIFIER_BITS.LWIN;
-        onAssignCode(activeLayer, selectedKey.matrixIndex, encodeStdKey4B(hid, mods));
+        pendingModifierHid = hid;
+        return;
       }
+      let mods = 0;
+      if (e.ctrlKey) mods |= MODIFIER_BITS.LCTRL;
+      if (e.shiftKey) mods |= MODIFIER_BITS.LSHIFT;
+      if (e.altKey) mods |= MODIFIER_BITS.LALT;
+      if (e.metaKey) mods |= MODIFIER_BITS.LWIN;
+      assigned = true;
+      onAssignCode(activeLayer, selectedKey.matrixIndex, encodeStdKey4B(hid, mods));
       setListening(false);
     };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (assigned || pendingModifierHid === null) return;
+      const hid = EVENT_CODE_TO_HID[e.code];
+      if (hid === pendingModifierHid) {
+        e.preventDefault();
+        e.stopPropagation();
+        assigned = true;
+        onAssignCode(activeLayer, selectedKey.matrixIndex, encodeStdKey4B(hid, 0));
+        setListening(false);
+      }
+    };
+
     window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
+    window.addEventListener('keyup', onKeyUp, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keyup', onKeyUp, true);
+    };
   }, [activeLayer, listening, onAssignCode, selectedKey]);
 
   const filteredCatalog = useMemo(() => {
