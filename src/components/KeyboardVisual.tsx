@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { HI75C_KEYS, formatKeycodeLabel, type KeyDef } from '../data/hi75cLayout';
-import type { Locale, Messages } from '../i18n/messages';
-import { keyEntryEquals, type KeyEntry, type RgbColor } from '../protocol/codecs';
 import { keyEntryToUint32 } from '../hooks/useKeyboardDevice';
+import type { Locale, Messages } from '../i18n/messages';
+import type { KeyEntry, RgbColor } from '../protocol/codecs';
 import { IconBrush, IconEyedropper, IconFill } from './Icons';
 
 export type RgbTool = 'paint' | 'eyedropper';
@@ -27,38 +27,90 @@ interface KeyboardVisualProps {
   onPaintColorChange: (color: RgbColor) => void;
 }
 
-const UNIT_PX = 50;
-const GAP_PX = 4;
-const PLATE_W = 16.25 * UNIT_PX - GAP_PX;
-const PLATE_H = 6.25 * UNIT_PX - GAP_PX;
-const CHASSIS_PAD_X = 40;
-const CHASSIS_PAD_Y = 46;
-const CHASSIS_W = PLATE_W + CHASSIS_PAD_X;
-const CHASSIS_H = PLATE_H + CHASSIS_PAD_Y;
+const UNIT_X = 52;
+const UNIT_Y = 52;
+const KEY_GAP = 4;
+const CHASSIS_PAD_X = 20;
+const CHASSIS_PAD_Y = 20;
+const KEYS_W = 16.25 * UNIT_X;
+const KEYS_H = 6.5 * UNIT_Y;
+const CHASSIS_W = KEYS_W + CHASSIS_PAD_X * 2;
+const CHASSIS_H = KEYS_H + CHASSIS_PAD_Y * 2;
 
-const QUICK_RGB_SWATCHES: RgbColor[] = [
-  { r: 255, g: 255, b: 255 },
-  { r: 239, g: 68, b: 68 },
-  { r: 245, g: 158, b: 11 },
-  { r: 52, g: 211, b: 153 },
-  { r: 56, g: 189, b: 248 },
-  { r: 59, g: 130, b: 246 },
-  { r: 168, g: 85, b: 247 },
-  { r: 0, g: 0, b: 0 },
+const QUICK_RGB_SWATCHES: Array<{ hex: string; color: RgbColor }> = [
+  { hex: '#ff2b2b', color: { r: 255, g: 43, b: 43 } },
+  { hex: '#ff8c1a', color: { r: 255, g: 140, b: 26 } },
+  { hex: '#ffe11a', color: { r: 255, g: 225, b: 26 } },
+  { hex: '#c6f24e', color: { r: 198, g: 242, b: 78 } },
+  { hex: '#38bdf8', color: { r: 56, g: 189, b: 248 } },
+  { hex: '#4a8ad6', color: { r: 74, g: 138, b: 214 } },
+  { hex: '#e06c9f', color: { r: 224, g: 108, b: 159 } },
+  { hex: '#ffffff', color: { r: 255, g: 255, b: 255 } },
+  { hex: '#000000', color: { r: 0, g: 0, b: 0 } },
 ];
 
-function rgbToHex(c: RgbColor): string {
-  const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
-  return `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`;
+function rgbToHex({ r, g, b }: RgbColor): string {
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 }
 
 function hexToRgb(hex: string): RgbColor {
   const clean = hex.replace('#', '');
+  if (clean.length !== 6) return { r: 255, g: 255, b: 255 };
   return {
-    r: parseInt(clean.slice(0, 2), 16) || 0,
-    g: parseInt(clean.slice(2, 4), 16) || 0,
-    b: parseInt(clean.slice(4, 6), 16) || 0,
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
   };
+}
+
+const COMPACT_LEGEND_MAP: Record<string, string> = {
+  Delete: 'Del',
+  'Page Up': 'PgUp',
+  'Page Down': 'PgDn',
+  Backspace: 'Bksp',
+  'Caps Lock': 'Caps',
+  'Left Shift': 'Shift',
+  'Right Shift': 'RShift',
+  'Left Ctrl': 'Ctrl',
+  'Right Ctrl': 'RCtrl',
+  'Left Win': 'Win',
+  'Right Win': 'Win',
+  'Left Alt': 'Alt',
+  'Right Alt': 'RAlt',
+  'FN (Layer 1)': 'Fn1',
+  Knob: 'VOL',
+  'Knob Volume': 'VOL',
+  'Knob Volume / Mute': 'VOL',
+  'Play / Pause': 'Play',
+  'Volume Up': 'Vol+',
+  'Volume Down': 'Vol-',
+  'Print Screen': 'PrtSc',
+  'Scroll Lock': 'ScrLk',
+  Insert: 'Ins',
+  Up: '↑',
+  Down: '↓',
+  Left: '←',
+  Right: '→',
+  'Right Menu': 'Menu',
+};
+
+function compactKeycapLegend(
+  raw: string,
+  key: KeyDef,
+  code4B: number,
+  activeLayer: 0 | 1,
+  locale: Locale
+): string {
+  const source = activeLayer === 0 && code4B === key.defaultBase4B ? raw || key.defaultLabel : raw;
+  if (key.category === 'knob' && source.toLowerCase().includes('knob')) {
+    return locale === 'zh-TW' ? '音量' : 'VOL';
+  }
+  return COMPACT_LEGEND_MAP[source] ?? source;
+}
+
+function isAccentModifierKey(key: KeyDef): boolean {
+  if (key.category === 'knob') return false;
+  return key.category === 'modifier' || key.id === 'K01';
 }
 
 export function KeyboardVisual({
@@ -80,145 +132,128 @@ export function KeyboardVisual({
   onFillAll,
   onPaintColorChange,
 }: KeyboardVisualProps) {
-  const [isPainting, setIsPainting] = useState(false);
+  const stageWrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const stageWrapRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const stop = () => setIsPainting(false);
-    window.addEventListener('pointerup', stop);
-    return () => window.removeEventListener('pointerup', stop);
-  }, []);
 
   useEffect(() => {
     const el = stageWrapRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const updateScale = () => {
-      const availableW = el.clientWidth - 24;
-      if (availableW <= 0) return;
-      const next = Math.min(1.18, Math.max(0.55, availableW / CHASSIS_W));
-      setScale(Number(next.toFixed(3)));
+    if (!el) return;
+
+    const updateScale = (width: number) => {
+      const next = Math.min(1, Math.max(0.28, (width - 4) / CHASSIS_W));
+      setScale(next);
     };
-    updateScale();
-    const ro = new ResizeObserver(updateScale);
-    ro.observe(el);
-    return () => ro.disconnect();
+
+    updateScale(el.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        updateScale(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
-  const handleKeyPointerDown = (key: KeyDef) => {
-    if (mode === 'rgb') {
-      const currentColor = rgbMap[key.matrixIndex] ?? { r: 255, g: 255, b: 255 };
-      if (rgbTool === 'eyedropper') {
-        onPickColor(currentColor);
-        onRgbToolChange('paint');
-      } else {
-        setIsPainting(true);
-        onPaintKey(key.matrixIndex);
-      }
-    } else {
-      onSelectKey(key);
-    }
-  };
-
-  const handleKeyPointerEnter = (key: KeyDef) => {
-    if (mode === 'rgb' && isPainting && rgbTool === 'paint') {
-      onPaintKey(key.matrixIndex);
-    }
-  };
-
-  const selectedKey = selectedKeyId
-    ? HI75C_KEYS.find((k) => k.id === selectedKeyId) ?? null
+  const paintHex = rgbToHex(paintColor);
+  const selectedDef = HI75C_KEYS.find((k) => k.id === selectedKeyId) ?? null;
+  const selectedEntry = selectedDef ? draftKeymap[selectedDef.matrixIndex] : undefined;
+  const selectedCode4B = selectedEntry ? keyEntryToUint32(selectedEntry) : 0;
+  const selectedLabel = selectedDef
+    ? activeLayer === 1 && selectedCode4B === 0
+      ? '—'
+      : formatKeycodeLabel(selectedCode4B, locale, false)
     : null;
 
   return (
-    <div className="stage-card">
-      <div className="stage-floating-bar">
-        {mode === 'rgb' ? (
-          <div className="stage-toolbar">
-            <div className="toolbar-group">
-              <span className="stage-mode-label">{t.lighting.perKeyRgb}</span>
-              <input
-                type="color"
-                className="rgb-picker-inline"
-                value={rgbToHex(paintColor)}
-                onChange={(e) => onPaintColorChange(hexToRgb(e.target.value))}
-                aria-label={t.lighting.customColor}
-              />
-              <span className="chip-mono tabular-nums">{rgbToHex(paintColor).toUpperCase()}</span>
-              <div className="quick-swatches">
-                {QUICK_RGB_SWATCHES.map((swatch) => {
-                  const hex = rgbToHex(swatch);
-                  const active =
-                    swatch.r === paintColor.r &&
-                    swatch.g === paintColor.g &&
-                    swatch.b === paintColor.b;
-                  return (
-                    <button
-                      key={hex}
-                      type="button"
-                      className={`quick-swatch ${active ? 'active' : ''}`}
-                      style={{ background: hex }}
-                      onClick={() => onPaintColorChange(swatch)}
-                      title={hex.toUpperCase()}
-                      aria-label={hex.toUpperCase()}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="toolbar-group">
+    <section className="stage-panel" aria-label={t.appName}>
+      <div className="stage-toolbar">
+        {mode === 'keymap' ? (
+          <>
+            <div className="segmented-control" role="tablist" aria-label={t.telemetry.layerLabel}>
               <button
                 type="button"
-                className={`btn ${rgbTool === 'paint' ? 'btn-primary' : ''}`}
+                role="tab"
+                aria-selected={activeLayer === 0}
+                className={`segmented-btn ${activeLayer === 0 ? 'active' : ''}`}
+                onClick={() => onLayerChange(0)}
+              >
+                {t.keymap.baseLayer}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeLayer === 1}
+                className={`segmented-btn ${activeLayer === 1 ? 'active' : ''}`}
+                onClick={() => onLayerChange(1)}
+              >
+                {t.keymap.fn1Layer}
+              </button>
+            </div>
+
+            {selectedDef && (
+              <div className="stage-selection-chip">
+                <span className="stage-selection-label">
+                  {selectedDef.defaultLabel === selectedLabel
+                    ? selectedLabel
+                    : `${selectedDef.defaultLabel} → ${selectedLabel}`}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="rgb-stage-bar">
+            <div className="rgb-tool-group">
+              <button
+                type="button"
+                aria-pressed={rgbTool === 'paint'}
+                className={`tool-btn ${rgbTool === 'paint' ? 'active' : ''}`}
                 onClick={() => onRgbToolChange('paint')}
               >
-                <IconBrush />
+                <IconBrush size={14} />
                 <span>{t.actions.paint}</span>
               </button>
               <button
                 type="button"
-                className={`btn ${rgbTool === 'eyedropper' ? 'btn-primary' : ''}`}
+                aria-pressed={rgbTool === 'eyedropper'}
+                className={`tool-btn ${rgbTool === 'eyedropper' ? 'active' : ''}`}
                 onClick={() => onRgbToolChange('eyedropper')}
               >
-                <IconEyedropper />
+                <IconEyedropper size={14} />
                 <span>{t.actions.eyedropper}</span>
               </button>
-              <button type="button" className="btn" onClick={onFillAll}>
-                <IconFill />
+            </div>
+
+            <div className="rgb-swatches-bar">
+              <label className="color-picker-well" title={t.lighting.customColor}>
+                <input
+                  type="color"
+                  aria-label={t.lighting.customColor}
+                  value={paintHex}
+                  onChange={(e) => onPaintColorChange(hexToRgb(e.target.value))}
+                />
+                <code>{paintHex}</code>
+              </label>
+
+              {QUICK_RGB_SWATCHES.map((swatch) => {
+                const active = paintHex === swatch.hex;
+                return (
+                  <button
+                    key={swatch.hex}
+                    type="button"
+                    className={`rgb-quick-swatch ${active ? 'active' : ''}`}
+                    style={{ backgroundColor: swatch.hex }}
+                    aria-label={`${t.lighting.color} ${swatch.hex}`}
+                    aria-pressed={active}
+                    onClick={() => onPaintColorChange(swatch.color)}
+                  />
+                );
+              })}
+
+              <button type="button" className="tool-btn" onClick={onFillAll}>
+                <IconFill size={14} />
                 <span>{t.actions.fillAll}</span>
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="stage-toolbar">
-            <div className="toolbar-group">
-              <div className="segmented-tabs compact">
-                <button
-                  type="button"
-                  className={`tab-btn ${activeLayer === 0 ? 'active' : ''}`}
-                  onClick={() => onLayerChange(0)}
-                >
-                  {t.keymap.baseLayer}
-                </button>
-                <button
-                  type="button"
-                  className={`tab-btn ${activeLayer === 1 ? 'active' : ''}`}
-                  onClick={() => onLayerChange(1)}
-                >
-                  {t.keymap.fn1Layer}
-                </button>
-              </div>
-            </div>
-
-            {selectedKey && (
-              <div className="toolbar-group">
-                <span className="chip-mono tabular-nums">
-                  {selectedKey.id} · #{selectedKey.matrixIndex}
-                </span>
-                <span className="selected-key-pill">{selectedKey.defaultLabel}</span>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -227,8 +262,8 @@ export function KeyboardVisual({
         <div
           className="keyboard-scale-box"
           style={{
-            width: CHASSIS_W * scale,
-            height: CHASSIS_H * scale,
+            width: Math.round(CHASSIS_W * scale),
+            height: Math.round(CHASSIS_H * scale),
           }}
         >
           <div
@@ -240,75 +275,112 @@ export function KeyboardVisual({
               transformOrigin: 'top left',
             }}
           >
-            <span className="chassis-screw tl" aria-hidden="true" />
-            <span className="chassis-screw tr" aria-hidden="true" />
-            <span className="chassis-screw bl" aria-hidden="true" />
-            <span className="chassis-screw br" aria-hidden="true" />
-
-            <div className="keyboard-plate" style={{ width: PLATE_W, height: PLATE_H }}>
+            <div
+              className="keys-layer"
+              style={{
+                left: CHASSIS_PAD_X,
+                top: CHASSIS_PAD_Y,
+                width: KEYS_W,
+                height: KEYS_H,
+              }}
+            >
               {HI75C_KEYS.map((key) => {
-                const left = key.x * UNIT_PX;
-                const top = key.y * UNIT_PX;
-                const width = key.w * UNIT_PX - GAP_PX;
-                const height = key.h * UNIT_PX - GAP_PX;
-                const isKnob = key.category === 'knob';
-                const isSelected = mode === 'keymap' && selectedKeyId === key.id;
+                const left = key.x * UNIT_X + KEY_GAP / 2;
+                const top = key.y * UNIT_Y + KEY_GAP / 2;
+                const w = key.w * UNIT_X - KEY_GAP;
+                const h = key.h * UNIT_Y - KEY_GAP;
 
-                const draftEntry = draftKeymap[key.matrixIndex];
+                const entry = draftKeymap[key.matrixIndex];
                 const syncedEntry = syncedKeymap[key.matrixIndex];
-                const isModified =
-                  mode === 'keymap' &&
-                  draftEntry &&
-                  syncedEntry &&
-                  !keyEntryEquals(draftEntry, syncedEntry);
+                const code4B = entry ? keyEntryToUint32(entry) : 0;
+                const syncedCode4B = syncedEntry ? keyEntryToUint32(syncedEntry) : 0;
+                const isDirty = mode === 'keymap' && code4B !== syncedCode4B;
+                const isSelected = mode === 'keymap' && selectedKeyId === key.id;
+                const isTransparent = activeLayer === 1 && code4B === 0;
+                const rawLegend = formatKeycodeLabel(code4B, locale, true) || key.defaultLabel;
+                const legendText = isTransparent
+                  ? '—'
+                  : compactKeycapLegend(rawLegend, key, code4B, activeLayer, locale);
 
-                const code4B = draftEntry ? keyEntryToUint32(draftEntry) : key.defaultBase4B;
-                const shortLegend = formatKeycodeLabel(code4B, locale, true);
+                const rgb = rgbMap[key.matrixIndex] ?? { r: 255, g: 255, b: 255 };
+                const isLit = rgb.r + rgb.g + rgb.b > 18;
+                const rgbColor = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
 
-                const rgb = rgbMap[key.matrixIndex] ?? { r: 0, g: 0, b: 0 };
-                const rgbCss = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
-                const hasLight = rgb.r + rgb.g + rgb.b > 12;
+                const isKnob = key.category === 'knob';
+
+                const keyClassNames = [
+                  'keycap',
+                  isKnob ? 'keycap-knob' : '',
+                  isAccentModifierKey(key) ? 'keycap-mod' : '',
+                  isSelected ? 'selected' : '',
+                  isTransparent ? 'transparent-key' : '',
+                  mode === 'rgb' ? 'rgb-mode' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
 
                 return (
                   <button
                     key={key.id}
                     type="button"
-                    onPointerDown={() => handleKeyPointerDown(key)}
-                    onPointerEnter={() => handleKeyPointerEnter(key)}
-                    className={`keycap ${isKnob ? 'keycap-knob' : ''} ${isSelected ? 'selected' : ''} ${isModified ? 'modified' : ''} ${mode === 'rgb' ? 'rgb-mode' : ''}`}
+                    className={keyClassNames}
                     style={{
                       left,
                       top,
-                      width,
-                      height,
-                      ...(mode === 'rgb'
-                        ? {
-                            borderColor: hasLight
-                              ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.8)`
-                              : 'rgba(255, 255, 255, 0.08)',
-                            boxShadow: hasLight
-                              ? `0 3px 0 #07080c, 0 0 14px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.32), inset 0 0 8px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.16)`
-                              : '0 3px 0 #07080c',
-                          }
-                        : {}),
+                      width: w,
+                      height: h,
+                      borderColor: mode === 'rgb' && isLit ? rgbColor : undefined,
+                    }}
+                    aria-pressed={isSelected}
+                    aria-label={`${key.defaultLabel} (${legendText})`}
+                    title={
+                      key.defaultLabel === legendText
+                        ? legendText
+                        : `${key.defaultLabel} → ${legendText}`
+                    }
+                    onClick={() => {
+                      if (mode === 'rgb') {
+                        if (rgbTool === 'eyedropper') {
+                          onPickColor(rgb);
+                        } else {
+                          onPaintKey(key.matrixIndex);
+                        }
+                      } else {
+                        onSelectKey(key);
+                      }
                     }}
                   >
-                    <span className="keycap-legend">{shortLegend}</span>
-                    {!isKnob && <span className="keycap-sub">{key.defaultLabel}</span>}
-                    {mode === 'rgb' && (
-                      <span className="keycap-rgb-dot" style={{ background: rgbCss }} />
+                    {isKnob ? (
+                      <div className="knob-assembly">
+                        <span className="knob-legend">{legendText}</span>
+                      </div>
+                    ) : (
+                      <div
+                        className="keycap-dish"
+                        style={
+                          mode === 'rgb' && isLit
+                            ? { backgroundColor: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.22)` }
+                            : undefined
+                        }
+                      >
+                        <span className="keycap-legend">{legendText}</span>
+                        {isDirty && <span className="keycap-dirty-dot" aria-hidden="true" />}
+                        {mode === 'rgb' && (
+                          <span
+                            className="keycap-rgb-dot"
+                            style={{ backgroundColor: isLit ? rgbColor : '#141414' }}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </div>
                     )}
                   </button>
                 );
               })}
             </div>
-
-            <div className="chassis-engraving" aria-hidden="true">
-              LEOBOG · HI75C PRO
-            </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

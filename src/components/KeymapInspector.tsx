@@ -8,10 +8,10 @@ import {
   type KeyDef,
   type KeycodeGroup,
 } from '../data/hi75cLayout';
+import { keyEntryToUint32 } from '../hooks/useKeyboardDevice';
 import type { Locale, Messages } from '../i18n/messages';
 import type { KeyEntry } from '../protocol/codecs';
-import { keyEntryToUint32 } from '../hooks/useKeyboardDevice';
-import { IconRadio, IconReset, IconSearch, IconX } from './Icons';
+import { IconKnob, IconReset, IconSearch } from './Icons';
 
 interface KeymapInspectorProps {
   t: Messages;
@@ -68,21 +68,12 @@ export function KeymapInspector({
     return entry ? keyEntryToUint32(entry) : 0;
   }, [draftKeymap, selectedKey]);
 
-  const defaultCode4B = selectedKey
-    ? activeLayer === 0
-      ? selectedKey.defaultBase4B
-      : selectedKey.defaultFn4B
-    : 0;
-
   const isStdKey = ((currentCode4B >>> 24) & 0xff) === 0x00 && (currentCode4B & 0xff) !== 0;
   const activeModMask = isStdKey ? (currentCode4B >>> 16) & 0xff : 0;
   const activeBaseHid = isStdKey ? currentCode4B & 0xff : 0;
 
   useEffect(() => {
     if (!listening || !selectedKey) return;
-    let pendingModifierHid: number | null = null;
-    let assigned = false;
-
     const onKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -92,37 +83,19 @@ export function KeymapInspector({
         return;
       }
       if (hid >= 0xe0 && hid <= 0xe7) {
-        pendingModifierHid = hid;
-        return;
+        onAssignCode(activeLayer, selectedKey.matrixIndex, encodeStdKey4B(hid, 0));
+      } else {
+        let mods = 0;
+        if (e.ctrlKey) mods |= MODIFIER_BITS.LCTRL;
+        if (e.shiftKey) mods |= MODIFIER_BITS.LSHIFT;
+        if (e.altKey) mods |= MODIFIER_BITS.LALT;
+        if (e.metaKey) mods |= MODIFIER_BITS.LWIN;
+        onAssignCode(activeLayer, selectedKey.matrixIndex, encodeStdKey4B(hid, mods));
       }
-      let mods = 0;
-      if (e.ctrlKey) mods |= MODIFIER_BITS.LCTRL;
-      if (e.shiftKey) mods |= MODIFIER_BITS.LSHIFT;
-      if (e.altKey) mods |= MODIFIER_BITS.LALT;
-      if (e.metaKey) mods |= MODIFIER_BITS.LWIN;
-      assigned = true;
-      onAssignCode(activeLayer, selectedKey.matrixIndex, encodeStdKey4B(hid, mods));
       setListening(false);
     };
-
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (assigned || pendingModifierHid === null) return;
-      const hid = EVENT_CODE_TO_HID[e.code];
-      if (hid === pendingModifierHid) {
-        e.preventDefault();
-        e.stopPropagation();
-        assigned = true;
-        onAssignCode(activeLayer, selectedKey.matrixIndex, encodeStdKey4B(hid, 0));
-        setListening(false);
-      }
-    };
-
     window.addEventListener('keydown', onKeyDown, true);
-    window.addEventListener('keyup', onKeyUp, true);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown, true);
-      window.removeEventListener('keyup', onKeyUp, true);
-    };
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [activeLayer, listening, onAssignCode, selectedKey]);
 
   const filteredCatalog = useMemo(() => {
@@ -167,22 +140,24 @@ export function KeymapInspector({
     { id: 'special', label: t.keymap.groupSpecial },
   ];
 
-  const isModifiedFromDefault = (currentCode4B >>> 0) !== (defaultCode4B >>> 0);
-
   return (
-    <aside className="inspector-card">
+    <aside className="inspector-card" aria-label={t.tabs.keymap}>
       <div className="panel-header">
-        <div className="segmented-tabs compact">
+        <div className="segmented-control" role="tablist" aria-label={t.telemetry.layerLabel}>
           <button
             type="button"
-            className={`tab-btn ${activeLayer === 0 ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activeLayer === 0}
+            className={`segmented-btn ${activeLayer === 0 ? 'active' : ''}`}
             onClick={() => onLayerChange(0)}
           >
             {t.keymap.baseLayer}
           </button>
           <button
             type="button"
-            className={`tab-btn ${activeLayer === 1 ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activeLayer === 1}
+            className={`segmented-btn ${activeLayer === 1 ? 'active' : ''}`}
             onClick={() => onLayerChange(1)}
           >
             {t.keymap.fn1Layer}
@@ -192,10 +167,12 @@ export function KeymapInspector({
         {knobDef && (
           <button
             type="button"
-            className={`btn ${selectedKey?.id === 'K82' ? 'btn-primary' : ''}`}
+            className={`btn-outline-pill ${selectedKey?.id === 'K82' ? 'active' : ''}`}
+            aria-pressed={selectedKey?.id === 'K82'}
             onClick={onSelectKnob}
           >
-            {t.keymap.knob}
+            <IconKnob size={14} />
+            <span>{t.keymap.knob}</span>
           </button>
         )}
       </div>
@@ -204,108 +181,97 @@ export function KeymapInspector({
         <div className="empty-state">{t.keymap.noKeySelected}</div>
       ) : (
         <>
-          <div className="key-summary-card">
-            <div className="key-summary-top">
-              <div className="key-preview-cap" aria-hidden="true">
-                <span>{formatKeycodeLabel(currentCode4B, locale, true)}</span>
-              </div>
-              <div className="key-summary-meta">
-                <div className="key-summary-title">{selectedKey.defaultLabel}</div>
-                <span className="chip-mono tabular-nums">
-                  {selectedKey.id} · #{selectedKey.matrixIndex}
-                </span>
-              </div>
-            </div>
-
-            <div className="mapping-compare">
-              <div className={`mapping-cell ${isModifiedFromDefault ? 'changed' : ''}`}>
-                <span className="mapping-label">{t.keymap.currentMapping}</span>
-                <span className="mapping-value">
-                  {formatKeycodeLabel(currentCode4B, locale, false)}
-                </span>
-              </div>
-              <div className="mapping-cell">
-                <span className="mapping-label">{t.keymap.defaultMapping}</span>
-                <span className="mapping-value muted">
-                  {formatKeycodeLabel(defaultCode4B, locale, false)}
-                </span>
-              </div>
-            </div>
-
+          <div className="inspector-section">
             <div className="control-row">
+              <h2 className="panel-heading">{selectedKey.defaultLabel}</h2>
+            </div>
+
+            <div className="mapping-readout-grid">
+              <div className="mapping-readout-cell">
+                <span className="field-label">{t.keymap.currentMapping}</span>
+                <kbd className="mapping-value">
+                  {formatKeycodeLabel(currentCode4B, locale, false)}
+                </kbd>
+              </div>
+              <div className="mapping-readout-cell">
+                <span className="field-label">{t.keymap.defaultMapping}</span>
+                <kbd className="mapping-value muted">
+                  {formatKeycodeLabel(
+                    activeLayer === 0 ? selectedKey.defaultBase4B : selectedKey.defaultFn4B,
+                    locale,
+                    false
+                  )}
+                </kbd>
+              </div>
+            </div>
+
+            <div className="inspector-action-row">
               <button
                 type="button"
-                className={`btn ${listening ? 'btn-amber listening-pulse' : ''}`}
-                style={{ flex: 1 }}
+                className={`btn-action ${listening ? 'listening' : ''}`}
+                aria-pressed={listening}
                 onClick={() => setListening((v) => !v)}
               >
-                <IconRadio />
-                <span>{listening ? t.actions.listening : t.actions.listenKey}</span>
+                {listening ? t.actions.listening : t.actions.listenKey}
               </button>
               <button
                 type="button"
-                className="btn"
-                disabled={!isModifiedFromDefault}
+                className="btn-action"
                 onClick={() => onResetKey(activeLayer, selectedKey.id)}
               >
-                <IconReset />
+                <IconReset size={14} />
                 <span>{t.actions.resetKey}</span>
               </button>
             </div>
           </div>
 
-          <div className="section-block">
-            <span className="section-label">{t.keymap.modifiers}</span>
+          <div className="inspector-section">
+            <span className="field-label">{t.keymap.modifiers}</span>
             <div className="mod-grid">
               {[
                 { label: 'Ctrl', bit: MODIFIER_BITS.LCTRL },
                 { label: 'Shift', bit: MODIFIER_BITS.LSHIFT },
                 { label: 'Alt', bit: MODIFIER_BITS.LALT },
                 { label: 'Win', bit: MODIFIER_BITS.LWIN },
-              ].map((m) => (
-                <button
-                  key={m.label}
-                  type="button"
-                  disabled={!activeBaseHid || activeBaseHid >= 0xe0}
-                  className={`mod-btn ${(activeModMask & m.bit) !== 0 ? 'active' : ''}`}
-                  onClick={() => toggleModBit(m.bit)}
-                >
-                  {m.label}
-                </button>
-              ))}
+              ].map((m) => {
+                const modActive = (activeModMask & m.bit) !== 0;
+                return (
+                  <button
+                    key={m.label}
+                    type="button"
+                    disabled={!activeBaseHid || activeBaseHid >= 0xe0}
+                    aria-pressed={modActive}
+                    className={`mod-btn ${modActive ? 'active' : ''}`}
+                    onClick={() => toggleModBit(m.bit)}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="section-block catalog-section">
+          <div className="inspector-section">
             <div className="search-field-wrap">
-              <IconSearch className="search-icon" />
+              <IconSearch size={14} className="search-icon" />
               <input
-                type="text"
-                className="input-field search-input"
+                type="search"
+                className="search-input"
+                aria-label={t.keymap.searchPlaceholder}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t.keymap.searchPlaceholder}
               />
-              {search && (
-                <button
-                  type="button"
-                  className="search-clear-btn"
-                  onClick={() => setSearch('')}
-                  aria-label={t.actions.clearSearch}
-                  title={t.actions.clearSearch}
-                >
-                  <IconX />
-                </button>
-              )}
             </div>
 
             {!search.trim() && (
-              <div className="category-pills">
+              <div className="filter-pills">
                 {groupLabels.map((g) => (
                   <button
                     key={g.id}
                     type="button"
-                    className={`category-pill ${group === g.id ? 'active' : ''}`}
+                    aria-pressed={group === g.id}
+                    className={`filter-pill ${group === g.id ? 'active' : ''}`}
                     onClick={() => setGroup(g.id)}
                   >
                     {g.label}
@@ -317,15 +283,17 @@ export function KeymapInspector({
             <div className="keycode-list">
               {filteredCatalog.map((item) => {
                 const active = (item.code4B >>> 0) === (currentCode4B >>> 0);
+                const label = locale === 'zh-TW' ? item.labelZhTW : item.labelEn;
                 return (
                   <button
                     key={`${item.group}-${item.code4B}`}
                     type="button"
+                    aria-pressed={active}
                     className={`keycode-btn ${active ? 'active' : ''}`}
                     onClick={() => handleCatalogPick(item.code4B, item.group, item.hidUsage)}
-                    title={locale === 'zh-TW' ? item.labelZhTW : item.labelEn}
+                    title={label}
                   >
-                    {locale === 'zh-TW' ? item.labelZhTW : item.labelEn}
+                    {label}
                   </button>
                 );
               })}

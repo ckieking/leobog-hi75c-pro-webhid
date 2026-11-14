@@ -2,6 +2,7 @@ export type Locale = 'zh-TW' | 'en';
 
 export interface Messages {
   appName: string;
+  appSubtitle: string;
   titleConnected: (percent: number) => string;
   titleAsleep: (percent: number | null) => string;
   status: {
@@ -29,11 +30,20 @@ export interface Messages {
     fillAll: string;
     eyedropper: string;
     toggleInspector: string;
-    clearSearch: string;
+    switchLanguage: string;
   };
   tabs: {
     keymap: string;
     lighting: string;
+  };
+  telemetry: {
+    layerLabel: string;
+    encoderLabel: string;
+    lightingLabel: string;
+    syncLabel: string;
+    synced: string;
+    perKeyRgbActive: string;
+    offState: string;
   };
   keymap: {
     baseLayer: string;
@@ -83,6 +93,7 @@ export interface Messages {
 export const MESSAGES: Record<Locale, Messages> = {
   'zh-TW': {
     appName: 'LEOBOG Hi75C Pro',
+    appSubtitle: '75% CNC AL6063 · 81 鍵與 K82 旋鈕編碼器 · WebHID',
     titleConnected: (percent) => `[${percent}%] LEOBOG Hi75C Pro`,
     titleAsleep: (percent) =>
       percent !== null ? `[休眠 · ${percent}%] LEOBOG Hi75C Pro` : `[休眠] LEOBOG Hi75C Pro`,
@@ -110,19 +121,28 @@ export const MESSAGES: Record<Locale, Messages> = {
       paint: '單鍵塗色',
       fillAll: '全部填滿',
       eyedropper: '吸管取色',
-      toggleInspector: '切換側邊面板',
-      clearSearch: '清除搜尋',
+      toggleInspector: '切換檢視面板',
+      switchLanguage: '切換為 English',
     },
     tabs: {
       keymap: '改鍵',
       lighting: '燈效',
+    },
+    telemetry: {
+      layerLabel: '目前層級',
+      encoderLabel: '旋鈕',
+      lightingLabel: '燈效',
+      syncLabel: '設定狀態',
+      synced: '已同步',
+      perKeyRgbActive: '單鍵自訂 RGB',
+      offState: '關閉',
     },
     keymap: {
       baseLayer: '基礎層',
       fn1Layer: 'FN1 層',
       knob: '旋鈕',
       selectedKey: '已選取按鍵',
-      noKeySelected: '點選左側鍵盤按鍵',
+      noKeySelected: '點選鍵盤上的按鍵或旋鈕',
       currentMapping: '目前功能',
       defaultMapping: '原廠預設',
       modifiers: '組合修飾鍵',
@@ -163,6 +183,7 @@ export const MESSAGES: Record<Locale, Messages> = {
   },
   en: {
     appName: 'LEOBOG Hi75C Pro',
+    appSubtitle: '75% CNC AL6063 · 81 Keys + K82 Encoder · WebHID',
     titleConnected: (percent) => `[${percent}%] LEOBOG Hi75C Pro`,
     titleAsleep: (percent) =>
       percent !== null ? `[Asleep · ${percent}%] LEOBOG Hi75C Pro` : `[Asleep] LEOBOG Hi75C Pro`,
@@ -191,18 +212,27 @@ export const MESSAGES: Record<Locale, Messages> = {
       fillAll: 'Fill All',
       eyedropper: 'Eyedropper',
       toggleInspector: 'Toggle Inspector',
-      clearSearch: 'Clear Search',
+      switchLanguage: 'Switch to Traditional Chinese',
     },
     tabs: {
       keymap: 'Keymap',
       lighting: 'Lighting',
+    },
+    telemetry: {
+      layerLabel: 'Active Layer',
+      encoderLabel: 'Knob',
+      lightingLabel: 'Lighting',
+      syncLabel: 'Status',
+      synced: 'In sync',
+      perKeyRgbActive: 'Per-Key RGB',
+      offState: 'Off',
     },
     keymap: {
       baseLayer: 'Base',
       fn1Layer: 'FN1',
       knob: 'Knob',
       selectedKey: 'Selected Key',
-      noKeySelected: 'Select a key',
+      noKeySelected: 'Select a key or knob',
       currentMapping: 'Assigned',
       defaultMapping: 'Default',
       modifiers: 'Modifiers',

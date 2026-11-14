@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import {
   LIGHTING_EFFECTS,
   RGB_COLOR_PRESETS,
@@ -11,6 +10,7 @@ import type {
   PaletteData,
   RgbColor,
 } from '../protocol/codecs';
+import { IconMulticolorRing } from './Icons';
 
 interface LightingPanelProps {
   t: Messages;
@@ -22,9 +22,9 @@ interface LightingPanelProps {
   onUpdatePaletteColor: (hwEffectId: number, colorIndex: number, color: RgbColor) => void;
 }
 
-function rgbToHex(c: RgbColor): string {
-  const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
-  return `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`;
+function rgbToHex({ r, g, b }: RgbColor): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${((1 << 24) | (clamp(r) << 16) | (clamp(g) << 8) | clamp(b)).toString(16).slice(1)}`;
 }
 
 function hexToRgb(hex: string): RgbColor {
@@ -59,24 +59,25 @@ export function LightingPanel({
   };
 
   return (
-    <aside className="inspector-card">
+    <aside className="inspector-card" aria-label={t.tabs.lighting}>
       <div className="panel-header">
-        <span className="panel-title">{t.lighting.effectsTitle}</span>
-        <span className="chip-mono">
+        <h2 className="panel-heading">{t.lighting.effectsTitle}</h2>
+        <code className="code-badge">
           {config.customFlag
             ? t.lighting.perKeyModeOn
             : locale === 'zh-TW'
               ? activeEffect.nameZhTW
               : activeEffect.nameEn}
-        </span>
+        </code>
       </div>
 
       <div className="switch-row">
-        <span>{t.lighting.perKeyRgb}</span>
+        <span className="switch-label">{t.lighting.perKeyRgb}</span>
         <button
           type="button"
           role="switch"
           aria-checked={config.customFlag}
+          aria-label={t.lighting.perKeyRgb}
           className={`toggle-pill ${config.customFlag ? 'on' : ''}`}
           onClick={() => {
             const nextCustom = !config.customFlag;
@@ -88,7 +89,7 @@ export function LightingPanel({
         />
       </div>
 
-      <div className="section-block">
+      <div className="inspector-section">
         <div className="effects-grid">
           {LIGHTING_EFFECTS.map((eff) => {
             const isActive =
@@ -99,6 +100,7 @@ export function LightingPanel({
               <button
                 key={eff.id}
                 type="button"
+                aria-pressed={isActive}
                 className={`effect-card ${isActive ? 'active' : ''}`}
                 onClick={() =>
                   onUpdateConfig({
@@ -107,7 +109,6 @@ export function LightingPanel({
                   })
                 }
               >
-                <span className="effect-id tabular-nums">#{eff.id.toString().padStart(2, '0')}</span>
                 <span className="effect-name">
                   {locale === 'zh-TW' ? eff.nameZhTW : eff.nameEn}
                 </span>
@@ -118,39 +119,37 @@ export function LightingPanel({
       </div>
 
       {activeEffect.supportsBrightness && (
-        <div className="section-block">
+        <div className="inspector-section">
           <div className="control-row">
-            <span className="section-label">{t.lighting.brightness}</span>
-            <span className="chip-mono tabular-nums">{slot.brightness} / 9</span>
+            <span className="field-label">{t.lighting.brightness}</span>
+            <code className="code-badge">{slot.brightness} / 9</code>
           </div>
           <input
             type="range"
             min={0}
             max={9}
             step={1}
+            aria-label={t.lighting.brightness}
             className="range-slider"
-            style={{ '--slider-pct': `${(slot.brightness / 9) * 100}%` } as CSSProperties}
             value={slot.brightness}
-            onChange={(e) =>
-              onUpdateSlot(slotIndex, { brightness: Number(e.target.value) })
-            }
+            onChange={(e) => onUpdateSlot(slotIndex, { brightness: Number(e.target.value) })}
           />
         </div>
       )}
 
       {activeEffect.supportsSpeed && (
-        <div className="section-block">
+        <div className="inspector-section">
           <div className="control-row">
-            <span className="section-label">{t.lighting.speed}</span>
-            <span className="chip-mono tabular-nums">{slot.speed} / 4</span>
+            <span className="field-label">{t.lighting.speed}</span>
+            <code className="code-badge">{slot.speed} / 4</code>
           </div>
           <input
             type="range"
             min={0}
             max={4}
             step={1}
+            aria-label={t.lighting.speed}
             className="range-slider"
-            style={{ '--slider-pct': `${(slot.speed / 4) * 100}%` } as CSSProperties}
             value={slot.speed}
             onChange={(e) => onUpdateSlot(slotIndex, { speed: Number(e.target.value) })}
           />
@@ -158,15 +157,14 @@ export function LightingPanel({
       )}
 
       {activeEffect.supportsColor && (
-        <div className="section-block">
+        <div className="inspector-section">
           <div className="control-row">
-            <span className="section-label">{t.lighting.color}</span>
+            <span className="field-label">{t.lighting.color}</span>
             {slot.color < 7 && (
-              <div className="toolbar-group">
-                <span className="section-label">{t.lighting.customColor}</span>
+              <label className="color-picker-well" title={t.lighting.customColor}>
                 <input
                   type="color"
-                  className="rgb-picker-inline"
+                  aria-label={t.lighting.customColor}
                   value={rgbToHex(paletteRgb)}
                   onChange={(e) =>
                     onUpdatePaletteColor(
@@ -176,20 +174,25 @@ export function LightingPanel({
                     )
                   }
                 />
-              </div>
+                <code>{rgbToHex(paletteRgb)}</code>
+              </label>
             )}
           </div>
           <div className="swatch-row">
             {RGB_COLOR_PRESETS.map((preset) => {
               const pColor = palette.effects[activeEffect.hwEffectId]?.[preset.index];
               const bg = pColor ? rgbToHex(pColor) : preset.hex;
+              const active = slot.color === preset.index;
+              const label = locale === 'zh-TW' ? preset.nameZhTW : preset.nameEn;
               return (
                 <button
                   key={preset.index}
                   type="button"
-                  title={locale === 'zh-TW' ? preset.nameZhTW : preset.nameEn}
-                  className={`swatch-btn ${slot.color === preset.index ? 'active' : ''}`}
-                  style={{ background: bg }}
+                  title={label}
+                  aria-label={label}
+                  aria-pressed={active}
+                  className={`swatch-btn ${active ? 'active' : ''}`}
+                  style={{ backgroundColor: bg }}
                   onClick={() => onUpdateSlot(slotIndex, { color: preset.index })}
                 />
               );
@@ -198,48 +201,51 @@ export function LightingPanel({
               <button
                 type="button"
                 title={t.lighting.multicolor}
-                className={`swatch-btn multicolor ${slot.color === 7 ? 'active' : ''}`}
+                aria-label={t.lighting.multicolor}
+                aria-pressed={slot.color === 7}
+                className={`swatch-btn swatch-multicolor ${slot.color === 7 ? 'active' : ''}`}
                 onClick={() => onUpdateSlot(slotIndex, { color: 7 })}
-              />
+              >
+                <IconMulticolorRing size={22} />
+              </button>
             )}
           </div>
         </div>
       )}
 
-      <div className="hardware-prefs">
-        <div className="switch-row">
-          <span>{t.lighting.winLock}</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={config.winLock}
-            className={`toggle-pill ${config.winLock ? 'on' : ''}`}
-            onClick={() => onUpdateConfig({ winLock: !config.winLock })}
-          />
-        </div>
+      <div className="switch-row">
+        <span className="switch-label">{t.lighting.winLock}</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={config.winLock}
+          aria-label={t.lighting.winLock}
+          className={`toggle-pill ${config.winLock ? 'on' : ''}`}
+          onClick={() => onUpdateConfig({ winLock: !config.winLock })}
+        />
+      </div>
 
-        <div className="control-row">
-          <span className="section-label">{t.lighting.sleepTimer}</span>
-          <select
-            className="select-field"
-            style={{ width: 'auto', minWidth: 130 }}
-            value={config.sleepSeconds}
-            onChange={(e) => {
-              const seconds = Number(e.target.value);
-              const opt = SLEEP_TIMER_OPTIONS.find((o) => o.seconds === seconds);
-              onUpdateConfig({
-                sleepSeconds: seconds,
-                sleepStep: opt?.step ?? 0,
-              });
-            }}
-          >
-            {SLEEP_TIMER_OPTIONS.map((opt) => (
-              <option key={opt.seconds} value={opt.seconds}>
-                {locale === 'zh-TW' ? opt.labelZhTW : opt.labelEn}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="control-row">
+        <span className="field-label">{t.lighting.sleepTimer}</span>
+        <select
+          className="select-field"
+          aria-label={t.lighting.sleepTimer}
+          value={config.sleepSeconds}
+          onChange={(e) => {
+            const seconds = Number(e.target.value);
+            const opt = SLEEP_TIMER_OPTIONS.find((o) => o.seconds === seconds);
+            onUpdateConfig({
+              sleepSeconds: seconds,
+              sleepStep: opt?.step ?? 0,
+            });
+          }}
+        >
+          {SLEEP_TIMER_OPTIONS.map((opt) => (
+            <option key={opt.seconds} value={opt.seconds}>
+              {locale === 'zh-TW' ? opt.labelZhTW : opt.labelEn}
+            </option>
+          ))}
+        </select>
       </div>
     </aside>
   );
