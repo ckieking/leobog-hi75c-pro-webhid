@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  HI75C_KEY_BY_ID,
   KEYCODE_CATALOG,
   MODIFIER_BITS,
   encodeStdKey4B,
@@ -11,7 +10,7 @@ import {
 import { keyEntryToUint32 } from '../hooks/useKeyboardDevice';
 import type { Locale, Messages } from '../i18n/messages';
 import type { KeyEntry } from '../protocol/codecs';
-import { IconKnob, IconReset, IconSearch } from './Icons';
+import { IconReset, IconSearch } from './Icons';
 
 interface KeymapInspectorProps {
   t: Messages;
@@ -19,7 +18,6 @@ interface KeymapInspectorProps {
   activeLayer: 0 | 1;
   onLayerChange: (layer: 0 | 1) => void;
   selectedKey: KeyDef | null;
-  onSelectKnob: () => void;
   draftKeymap: KeyEntry[];
   onAssignCode: (layer: 0 | 1, matrixIndex: number, code4B: number) => void;
   onResetKey: (layer: 0 | 1, keyId: string) => void;
@@ -53,7 +51,6 @@ export function KeymapInspector({
   activeLayer,
   onLayerChange,
   selectedKey,
-  onSelectKnob,
   draftKeymap,
   onAssignCode,
   onResetKey,
@@ -130,8 +127,6 @@ export function KeymapInspector({
     }
   };
 
-  const knobDef = HI75C_KEY_BY_ID.get('K82');
-
   const groupLabels: { id: KeycodeGroup; label: string }[] = [
     { id: 'standard', label: t.keymap.groupStandard },
     { id: 'modifier', label: t.keymap.groupModifier },
@@ -163,18 +158,6 @@ export function KeymapInspector({
             {t.keymap.fn1Layer}
           </button>
         </div>
-
-        {knobDef && (
-          <button
-            type="button"
-            className={`btn-outline-pill ${selectedKey?.id === 'K82' ? 'active' : ''}`}
-            aria-pressed={selectedKey?.id === 'K82'}
-            onClick={onSelectKnob}
-          >
-            <IconKnob size={14} />
-            <span>{t.keymap.knob}</span>
-          </button>
-        )}
       </div>
 
       {!selectedKey ? (

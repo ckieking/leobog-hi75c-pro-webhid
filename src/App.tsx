@@ -232,7 +232,6 @@ export function App() {
                 activeLayer={activeLayer}
                 onLayerChange={setActiveLayer}
                 selectedKey={selectedKey}
-                onSelectKnob={() => setSelectedKeyId('K82')}
                 draftKeymap={draftKeymap}
                 onAssignCode={device.setKeyEntry}
                 onResetKey={device.resetKeyToDefault}
