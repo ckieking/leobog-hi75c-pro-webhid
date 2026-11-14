@@ -527,7 +527,9 @@ export function useKeyboardDevice(t: Messages) {
 
   const applyChanges = useCallback(async () => {
     const client = clientRef.current;
-    if (!client || connectionState !== 'connected' || diff.totalPending === 0) return;
+    if (!client || connectionState !== 'connected' || diff.totalPending === 0 || busyRef.current) {
+      return;
+    }
     if (!hasSyncedDeviceRef.current) {
       setErrorMessage(t.status.asleep);
       return;

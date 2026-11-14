@@ -3,6 +3,7 @@ import { HeaderBar, type ActiveTab } from './components/HeaderBar';
 import { KeyboardVisual, type RgbTool } from './components/KeyboardVisual';
 import { KeymapInspector } from './components/KeymapInspector';
 import { LightingPanel } from './components/LightingPanel';
+import { IconAlert, IconCheck, IconReset } from './components/Icons';
 import { HI75C_KEYS, HI75C_KEY_BY_ID } from './data/hi75cLayout';
 import { useKeyboardDevice } from './hooks/useKeyboardDevice';
 import { useLocale } from './i18n/useLocale';
@@ -17,6 +18,7 @@ export function App() {
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(HI75C_KEYS[0]?.id ?? null);
   const [paintColor, setPaintColor] = useState<RgbColor>({ r: 56, g: 189, b: 248 });
   const [rgbTool, setRgbTool] = useState<RgbTool>('paint');
+  const [inspectorOpen, setInspectorOpen] = useState(true);
 
   const selectedKey = selectedKeyId ? (HI75C_KEY_BY_ID.get(selectedKeyId) ?? null) : null;
 
@@ -48,6 +50,8 @@ export function App() {
         isAsleep={device.isAsleep}
         battery={device.battery}
         webHidSupported={device.webHidSupported}
+        inspectorOpen={inspectorOpen}
+        onToggleInspector={() => setInspectorOpen((v) => !v)}
         onConnect={() => void device.connect()}
         onRefreshBattery={() => void device.refreshBattery()}
         onExportProfile={handleExportProfile}
@@ -56,85 +60,107 @@ export function App() {
         }}
       />
 
-      {!device.webHidSupported && (
-        <div className="alert-banner error">{t.status.unsupportedWebHid}</div>
-      )}
+      {(!device.webHidSupported || device.errorMessage || device.missingFnKey) && (
+        <div className="alerts-stack">
+          {!device.webHidSupported && (
+            <div className="alert-banner error">
+              <IconAlert />
+              <span>{t.status.unsupportedWebHid}</span>
+            </div>
+          )}
 
-      {device.errorMessage && (
-        <div className="alert-banner error">{device.errorMessage}</div>
-      )}
+          {device.errorMessage && (
+            <div className="alert-banner error">
+              <IconAlert />
+              <span>{device.errorMessage}</span>
+            </div>
+          )}
 
-      {device.missingFnKey && (
-        <div className="alert-banner warning">{t.keymap.missingFnWarning}</div>
-      )}
-
-      {device.diff.totalPending > 0 && (
-        <div className="pending-bar">
-          <div className="pending-bar-info">
-            <span>{t.feedback.pendingChanges(device.diff.totalPending)}</span>
-          </div>
-          <div className="pending-bar-actions">
-            <button type="button" className="btn" onClick={device.revertChanges}>
-              {t.actions.revert}
-            </button>
-            <button
-              type="button"
-              className="btn btn-amber"
-              disabled={device.connectionState !== 'connected' || device.isApplying}
-              onClick={() => void device.applyChanges()}
-            >
-              {t.actions.apply}
-            </button>
-          </div>
+          {device.missingFnKey && (
+            <div className="alert-banner warning">
+              <IconAlert />
+              <span>{t.keymap.missingFnWarning}</span>
+            </div>
+          )}
         </div>
       )}
 
-      <main className="workspace-main">
-        <KeyboardVisual
-          t={t}
-          locale={locale}
-          mode={visualMode}
-          activeLayer={activeLayer}
-          selectedKeyId={selectedKeyId}
-          onSelectKey={(k) => {
-            setSelectedKeyId(k.id);
-            if (activeTab !== 'keymap') setActiveTab('keymap');
-          }}
-          draftKeymap={draftKeymap}
-          syncedKeymap={syncedKeymap}
-          rgbMap={device.draft.rgbMap}
-          paintColor={paintColor}
-          rgbTool={rgbTool}
-          onRgbToolChange={setRgbTool}
-          onPaintKey={(matrixIdx) => device.setRgbColor(matrixIdx, paintColor)}
-          onPickColor={(c) => setPaintColor(c)}
-          onFillAll={() => device.fillAllRgb(paintColor)}
-          onPaintColorChange={setPaintColor}
-        />
-
-        {activeTab === 'keymap' ? (
-          <KeymapInspector
+      <main className={`workspace-main ${inspectorOpen ? 'with-inspector' : 'focus-mode'}`}>
+        <div className="stage-column">
+          <KeyboardVisual
             t={t}
             locale={locale}
+            mode={visualMode}
             activeLayer={activeLayer}
             onLayerChange={setActiveLayer}
-            selectedKey={selectedKey}
-            onSelectKnob={() => setSelectedKeyId('K82')}
+            selectedKeyId={selectedKeyId}
+            onSelectKey={(k) => {
+              setSelectedKeyId(k.id);
+              if (activeTab !== 'keymap') setActiveTab('keymap');
+            }}
             draftKeymap={draftKeymap}
-            onAssignCode={device.setKeyEntry}
-            onResetKey={device.resetKeyToDefault}
+            syncedKeymap={syncedKeymap}
+            rgbMap={device.draft.rgbMap}
+            paintColor={paintColor}
+            rgbTool={rgbTool}
+            onRgbToolChange={setRgbTool}
+            onPaintKey={(matrixIdx) => device.setRgbColor(matrixIdx, paintColor)}
+            onPickColor={(c) => setPaintColor(c)}
+            onFillAll={() => device.fillAllRgb(paintColor)}
+            onPaintColorChange={setPaintColor}
           />
-        ) : (
-          <LightingPanel
-            t={t}
-            locale={locale}
-            config={device.draft.config}
-            palette={device.draft.palette}
-            onUpdateConfig={device.updateConfig}
-            onUpdateSlot={device.updateSlot}
-            onUpdatePaletteColor={device.updatePaletteColor}
-          />
-        )}
+
+          {device.diff.totalPending > 0 && (
+            <div className="pending-dock" role="status">
+              <div className="pending-dock-info">
+                <span className="pending-dot" />
+                <span className="tabular-nums">
+                  {t.feedback.pendingChanges(device.diff.totalPending)}
+                </span>
+              </div>
+              <div className="pending-dock-actions">
+                <button type="button" className="btn" onClick={device.revertChanges}>
+                  <IconReset />
+                  <span>{t.actions.revert}</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-amber"
+                  disabled={device.connectionState !== 'connected' || device.isApplying}
+                  onClick={() => void device.applyChanges()}
+                >
+                  <IconCheck />
+                  <span>{t.actions.apply}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {inspectorOpen &&
+          (activeTab === 'keymap' ? (
+            <KeymapInspector
+              t={t}
+              locale={locale}
+              activeLayer={activeLayer}
+              onLayerChange={setActiveLayer}
+              selectedKey={selectedKey}
+              onSelectKnob={() => setSelectedKeyId('K82')}
+              draftKeymap={draftKeymap}
+              onAssignCode={device.setKeyEntry}
+              onResetKey={device.resetKeyToDefault}
+            />
+          ) : (
+            <LightingPanel
+              t={t}
+              locale={locale}
+              config={device.draft.config}
+              palette={device.draft.palette}
+              onUpdateConfig={device.updateConfig}
+              onUpdateSlot={device.updateSlot}
+              onUpdatePaletteColor={device.updatePaletteColor}
+            />
+          ))}
       </main>
     </div>
   );

@@ -32,7 +32,7 @@ const GAP_PX = 4;
 const PLATE_W = 16.25 * UNIT_PX - GAP_PX;
 const PLATE_H = 6.25 * UNIT_PX - GAP_PX;
 const CHASSIS_PAD_X = 40;
-const CHASSIS_PAD_Y = 38;
+const CHASSIS_PAD_Y = 46;
 const CHASSIS_W = PLATE_W + CHASSIS_PAD_X;
 const CHASSIS_H = PLATE_H + CHASSIS_PAD_Y;
 

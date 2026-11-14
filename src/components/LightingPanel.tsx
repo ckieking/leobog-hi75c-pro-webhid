@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import {
   LIGHTING_EFFECTS,
   RGB_COLOR_PRESETS,
@@ -106,7 +107,7 @@ export function LightingPanel({
                   })
                 }
               >
-                <span className="effect-id">#{eff.id.toString().padStart(2, '0')}</span>
+                <span className="effect-id tabular-nums">#{eff.id.toString().padStart(2, '0')}</span>
                 <span className="effect-name">
                   {locale === 'zh-TW' ? eff.nameZhTW : eff.nameEn}
                 </span>
@@ -120,7 +121,7 @@ export function LightingPanel({
         <div className="section-block">
           <div className="control-row">
             <span className="section-label">{t.lighting.brightness}</span>
-            <span className="chip-mono">{slot.brightness} / 9</span>
+            <span className="chip-mono tabular-nums">{slot.brightness} / 9</span>
           </div>
           <input
             type="range"
@@ -128,6 +129,7 @@ export function LightingPanel({
             max={9}
             step={1}
             className="range-slider"
+            style={{ '--slider-pct': `${(slot.brightness / 9) * 100}%` } as CSSProperties}
             value={slot.brightness}
             onChange={(e) =>
               onUpdateSlot(slotIndex, { brightness: Number(e.target.value) })
@@ -140,7 +142,7 @@ export function LightingPanel({
         <div className="section-block">
           <div className="control-row">
             <span className="section-label">{t.lighting.speed}</span>
-            <span className="chip-mono">{slot.speed} / 4</span>
+            <span className="chip-mono tabular-nums">{slot.speed} / 4</span>
           </div>
           <input
             type="range"
@@ -148,6 +150,7 @@ export function LightingPanel({
             max={4}
             step={1}
             className="range-slider"
+            style={{ '--slider-pct': `${(slot.speed / 4) * 100}%` } as CSSProperties}
             value={slot.speed}
             onChange={(e) => onUpdateSlot(slotIndex, { speed: Number(e.target.value) })}
           />
@@ -203,38 +206,40 @@ export function LightingPanel({
         </div>
       )}
 
-      <div className="switch-row">
-        <span>{t.lighting.winLock}</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={config.winLock}
-          className={`toggle-pill ${config.winLock ? 'on' : ''}`}
-          onClick={() => onUpdateConfig({ winLock: !config.winLock })}
-        />
-      </div>
+      <div className="hardware-prefs">
+        <div className="switch-row">
+          <span>{t.lighting.winLock}</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={config.winLock}
+            className={`toggle-pill ${config.winLock ? 'on' : ''}`}
+            onClick={() => onUpdateConfig({ winLock: !config.winLock })}
+          />
+        </div>
 
-      <div className="control-row">
-        <span className="section-label">{t.lighting.sleepTimer}</span>
-        <select
-          className="select-field"
-          style={{ width: 'auto', minWidth: 130 }}
-          value={config.sleepSeconds}
-          onChange={(e) => {
-            const seconds = Number(e.target.value);
-            const opt = SLEEP_TIMER_OPTIONS.find((o) => o.seconds === seconds);
-            onUpdateConfig({
-              sleepSeconds: seconds,
-              sleepStep: opt?.step ?? 0,
-            });
-          }}
-        >
-          {SLEEP_TIMER_OPTIONS.map((opt) => (
-            <option key={opt.seconds} value={opt.seconds}>
-              {locale === 'zh-TW' ? opt.labelZhTW : opt.labelEn}
-            </option>
-          ))}
-        </select>
+        <div className="control-row">
+          <span className="section-label">{t.lighting.sleepTimer}</span>
+          <select
+            className="select-field"
+            style={{ width: 'auto', minWidth: 130 }}
+            value={config.sleepSeconds}
+            onChange={(e) => {
+              const seconds = Number(e.target.value);
+              const opt = SLEEP_TIMER_OPTIONS.find((o) => o.seconds === seconds);
+              onUpdateConfig({
+                sleepSeconds: seconds,
+                sleepStep: opt?.step ?? 0,
+              });
+            }}
+          >
+            {SLEEP_TIMER_OPTIONS.map((opt) => (
+              <option key={opt.seconds} value={opt.seconds}>
+                {locale === 'zh-TW' ? opt.labelZhTW : opt.labelEn}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     </aside>
   );

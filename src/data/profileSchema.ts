@@ -87,8 +87,8 @@ function validateLighting(raw: unknown): ProfileLighting {
   if (!isPlainObject(raw)) {
     throw new Error('Invalid profile: lighting must be an object');
   }
-  if (!isIntInRange(raw.effectId, 0, 30)) {
-    throw new Error('Invalid profile: lighting.effectId must be an integer 0..30');
+  if (!isIntInRange(raw.effectId, 0, 32)) {
+    throw new Error('Invalid profile: lighting.effectId must be an integer 0..32');
   }
   if (!isIntInRange(raw.brightness, 0, 9)) {
     throw new Error('Invalid profile: lighting.brightness must be an integer 0..9');

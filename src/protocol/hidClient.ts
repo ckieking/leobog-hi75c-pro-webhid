@@ -232,7 +232,7 @@ export class HidClient {
           return;
         }
         const parsed = decodePacket(dataViewToUint8Array(ev.data));
-        if (!parsed || parsed.hasError || parsed.cmd !== cmd) {
+        if (!parsed || parsed.hasError || parsed.cmd !== cmd || parsed.sub !== sub) {
           return;
         }
         collected.push(parsed);

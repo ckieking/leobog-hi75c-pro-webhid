@@ -100,11 +100,17 @@ describe('hi75cLayout', () => {
 });
 
 describe('profileSchema', () => {
-  it('accepts and round-trips a valid profile', () => {
+  it('accepts and round-trips a valid profile including per-key effectId 32', () => {
     const profile = makeValidProfile();
     const json = serializeProfile(profile);
     expect(validateProfile(json)).toBe(true);
     expect(parseProfile(json)).toEqual(profile);
+
+    const perKey = makeValidProfile();
+    perKey.lighting.effectId = 32;
+    perKey.lighting.customFlag = true;
+    expect(validateProfile(serializeProfile(perKey))).toBe(true);
+    expect(parseProfile(serializeProfile(perKey))).toEqual(perKey);
   });
 
   it('rejects malformed or out-of-range profiles', () => {
